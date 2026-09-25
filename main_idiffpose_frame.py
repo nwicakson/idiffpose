@@ -71,17 +71,11 @@ def parse_args_and_config():
     
     # DEQ configuration parameters
     parser.add_argument('--deq_enabled', action='store_true',
-                  help='enable DEQ in the model')
-    parser.add_argument('--deq_middle_layer', action='store_true',
-                    help='enable DEQ for middle layer')
-    parser.add_argument('--deq_final_layer', action='store_true',
-                    help='enable DEQ for final layer')
-    parser.add_argument('--deq_iterations', default=5, type=int,
-                      help='default number of DEQ iterations')
-    parser.add_argument('--deq_best_iterations', default=50, type=int,
-                      help='number of DEQ iterations for best epoch')
-    parser.add_argument('--best_epoch', action='store_true',
-                      help='run evaluation with best epoch settings (more iterations)')
+                        help='enable DEQ in the model')
+    parser.add_argument('--deq_iterations', default=15, type=int,
+                        help='default number of DEQ iterations')
+    parser.add_argument("--run_deq_sweep", action="store_true",
+                        help="Run multiple DEQ settings (iterations/components) for evaluation")
 
     args = parser.parse_args()
     args.log_path = os.path.join(args.exp, args.doc)
@@ -108,18 +102,16 @@ def parse_args_and_config():
     # Use argument values for DEQ settings
     new_config.deq.enabled = args.deq_enabled
     logging.info(f"DEQ enabled status from args: {args.deq_enabled}")
-
-    if not hasattr(new_config.deq, 'components'):
-        new_config.deq.components = argparse.Namespace()
-
-    new_config.deq.components.middle_layer = args.deq_middle_layer and args.deq_enabled
-    new_config.deq.components.final_layer = args.deq_final_layer and args.deq_enabled
-    new_config.deq.default_iterations = args.deq_iterations  # Use value from args
-    new_config.deq.best_epoch_iterations = args.deq_best_iterations  # Use value from args
     
-    logging.info(f"DEQ configuration: enabled={new_config.deq.enabled}, " +
-             f"default_iterations={new_config.deq.default_iterations}, " +
-             f"best_epoch_iterations={new_config.deq.best_epoch_iterations}")
+    # Single-iterations knob (train & eval use the same cap)
+    new_config.deq.default_iterations = args.deq_iterations
+    logging.info(
+        f"DEQ configuration: enabled={new_config.deq.enabled}, "
+        f"default_iterations={new_config.deq.default_iterations}"
+    )
+    
+    from common.deq_config_shim import apply_deq_defaults
+    new_config = apply_deq_defaults(new_config, args)
 
     if args.train:
         if os.path.exists(args.log_path):
@@ -203,7 +195,7 @@ def main():
     
     # Log the test parameters being used
     logging.info(f"Testing parameters: times={args.test_times}, steps={args.test_timesteps}, diffusion={args.test_num_diffusion_timesteps}")
-    logging.info(f"DEQ settings: enabled={args.deq_enabled}, iterations={args.deq_iterations}, best_iterations={args.deq_best_iterations}")
+    logging.info(f"DEQ settings: enabled={args.deq_enabled}, iterations={args.deq_iterations}")
     
     try:
         # Create the runner
@@ -218,9 +210,12 @@ def main():
         
         if args.train:
             runner.train()
+            return
+        if args.run_deq_sweep:
+            runner.run_deq_sweep([5,10,15,25,50], out_csv="deq_sweep.csv")
+            return
         else:
-            # Use best_epoch flag to determine evaluation mode
-            runner.test_hyber(is_train=False, is_best_epoch=args.best_epoch)
+            runner.test_hyber(is_train=False)
             
     except Exception:
         logging.error(traceback.format_exc())

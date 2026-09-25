@@ -47,47 +47,17 @@ optim:
     eps: 0.00000001
     grad_clip: 1.0
 
-# DEQ-specific configuration
 deq:
-    # General DEQ settings
     enabled: true
-    layers: [0, 1, 2, 3, 4]              # 0-based indices < num_layer
-    default_iterations: 10
-    best_epoch_iterations: 50   #standard = 15
-    warm_up_epochs: 20
-    min_epoch_for_increase: 10
-    tolerance: 0.0001
-    max_iterations: 15
-    
-    # Logging and tracking settings
-    log_frequency: 100
-    track_residuals: true
-    save_residual_plots: false
-    
-    # Component selection for DEQ application
-    components:
-        middle_layer: true  # Apply DEQ to middle layer in GCNdiff
-        final_layer: true   # Apply DEQ to final layer in GCNpose
-    
-    # Scheduling options
-    scheduling:
-        type: "fixed"      # "fixed", "linear", "exponential", "cosine"
-        start_value: 1
-        end_value: 15
-    
-    # Diffusion integration settings
-    diffusion:
-        increase_timesteps_for_best: true  # Use more diffusion timesteps for best epoch
-        timestep_multiplier: 2             # Multiply timesteps by this factor for best epoch
-    
-    # Fallback settings
-    fallback:
-        enabled: true
-        replace_nan: true
-        max_retries: 3
-        
-    # Advanced settings
-    advanced:
-        convergence_metric: "relative"  # "relative" or "absolute"
-        anderson_acceleration: true
-        damping_factor: 1.0
+    mode: per_layer         # per_layer or stack  
+    layers: [0]             # used only when mode == per_layer; 0-based indices < num_layer
+    mode_block: unrolled    # unrolled or implicit
+    iterations: 20          # used only when mode_block == unrolled
+    solver_max_iter: 15
+    solver_tol: 1.0e-4
+    anderson_m: 5
+    anderson_l2: 1.0e-4
+    anderson_beta: 0.7
+    solver_damping: 0.5
+    max_residual: 1.0e6
+    track_residuals: false
